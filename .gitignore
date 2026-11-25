@@ -1,0 +1,16 @@
+# Полные датасеты соревнования не коммитим (train.csv > 100 МБ)
+data/*.csv
+!data/sample_test.csv
+
+__pycache__/
+*.pyc
+.venv/
+.idea/
+.vscode/
+
+# Модели и DQ-отчёты появляются при работе DAG'ов
+models/*
+reports/*
+!models/.gitkeep
+!reports/.gitkeep
+.env
