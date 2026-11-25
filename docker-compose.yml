@@ -1,0 +1,276 @@
+x-postgres-env:
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: '5432'
+  POSTGRES_DB: ${POSTGRES_DB:-fraud_db}
+  POSTGRES_USER: ${POSTGRES_USER:-fraud_user}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fraud_pass}
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    networks:
+    - ml-scorer
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    depends_on:
+    - zookeeper
+    networks:
+    - ml-scorer
+    ports:
+    - 127.0.0.1:${KAFKA_PORT:-9095}:9095
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9095
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+    healthcheck:
+      test:
+      - CMD
+      - kafka-topics
+      - --bootstrap-server
+      - localhost:9092
+      - --list
+      interval: 5s
+      timeout: 10s
+      retries: 20
+  kafka-setup:
+    image: confluentinc/cp-kafka:7.3.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+    - ml-scorer
+    entrypoint:
+    - /bin/bash
+    - -c
+    command: '"
+
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic
+      transactions --partitions 3 --replication-factor 1
+
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic
+      scoring --partitions 3 --replication-factor 1
+
+      kafka-topics --bootstrap-server kafka:9092 --list
+
+      "
+
+      '
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+    - ml-scorer
+    ports:
+    - 127.0.0.1:${KAFKA_UI_PORT:-8080}:8080
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+  postgres:
+    image: postgres:15
+    networks:
+    - ml-scorer
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fraud_db}
+      POSTGRES_USER: ${POSTGRES_USER:-fraud_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fraud_pass}
+    volumes:
+    - postgres_data:/var/lib/postgresql/data
+    - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-monitoring.sql:ro
+    ports:
+    - 127.0.0.1:${POSTGRES_PORT_EXTERNAL:-5433}:5432
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 5s
+      timeout: 10s
+      retries: 20
+  fraud_detector:
+    build:
+      context: ./fraud_detector
+      args:
+        BASE_IMAGE: ${FRAUD_DETECTOR_BASE:-python:3.11-slim}
+    restart: unless-stopped
+    networks:
+    - ml-scorer
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TRANSACTIONS_TOPIC: transactions
+      KAFKA_SCORING_TOPIC: scoring
+      MODELS_DIR: /models
+      MODEL_THRESHOLD: ${MODEL_THRESHOLD:-0.5}
+    volumes:
+    - ./models:/models
+    depends_on:
+      kafka-setup:
+        condition: service_completed_successfully
+    ports:
+    - 127.0.0.1:${SCORER_METRICS_PORT:-8000}:8000
+  transaction_simulator:
+    build:
+      context: ./transaction_simulator
+      args:
+        BASE_IMAGE: ${TRANSACTION_SIMULATOR_BASE:-python:3.11-slim}
+    restart: unless-stopped
+    networks:
+    - ml-scorer
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: transactions
+      TRANSACTIONS_CSV_PATH: /data/train.csv
+      SEND_INTERVAL_SECONDS: ${SEND_INTERVAL_SECONDS:-0.1}
+    volumes:
+    - ${TRAIN_DATA_CSV:-./data/train.csv}:/data/train.csv:ro
+    depends_on:
+      kafka-setup:
+        condition: service_completed_successfully
+  scoring_writer:
+    build:
+      context: ./scoring_writer
+      args:
+        BASE_IMAGE: ${SCORING_WRITER_BASE:-python:3.11-slim}
+    restart: unless-stopped
+    networks:
+    - ml-scorer
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: '5432'
+      POSTGRES_DB: ${POSTGRES_DB:-fraud_db}
+      POSTGRES_USER: ${POSTGRES_USER:-fraud_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fraud_pass}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_SCORING_TOPIC: scoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-setup:
+        condition: service_completed_successfully
+    ports:
+    - 127.0.0.1:${WRITER_METRICS_PORT:-8001}:8001
+  data_loader:
+    build:
+      context: ./data_loader
+      args:
+        BASE_IMAGE: ${DATA_LOADER_BASE:-python:3.11-slim}
+    networks:
+    - ml-scorer
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: '5432'
+      POSTGRES_DB: ${POSTGRES_DB:-fraud_db}
+      POSTGRES_USER: ${POSTGRES_USER:-fraud_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fraud_pass}
+      LABELED_CSV_PATH: /data/train.csv
+    volumes:
+    - ${TRAIN_DATA_CSV:-./data/train.csv}:/data/train.csv:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+  airflow:
+    build:
+      context: ./airflow
+      args:
+        BASE_IMAGE: ${AIRFLOW_BASE:-apache/airflow:2.10.5-python3.11}
+    user: 0:0
+    networks:
+    - ml-scorer
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: '5432'
+      POSTGRES_DB: ${POSTGRES_DB:-fraud_db}
+      POSTGRES_USER: ${POSTGRES_USER:-fraud_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fraud_pass}
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow_state/airflow.db
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: '30'
+      PYTHONPATH: /opt/airflow
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+      TRAINING_DATA_DIR: /opt/airflow/training_data
+      MODELS_DIR: /opt/airflow/models
+      REPORTS_DIR: /opt/airflow/reports
+      FRAUD_SRC: /opt/airflow/fraud_src
+    volumes:
+    - ./dags:/opt/airflow/dags
+    - ./pipeline:/opt/airflow/pipeline:ro
+    - ./fraud_detector/src:/opt/airflow/fraud_src:ro
+    - ./models:/opt/airflow/models
+    - ./reports:/opt/airflow/reports
+    - training_data:/opt/airflow/training_data
+    - airflow_state:/opt/airflow/airflow_state
+    ports:
+    - 127.0.0.1:${AIRFLOW_PORT:-8081}:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      data_loader:
+        condition: service_completed_successfully
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    restart: unless-stopped
+    networks:
+    - ml-scorer
+    ports:
+    - 127.0.0.1:${PROMETHEUS_PORT:-9091}:9090
+    volumes:
+    - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    - prometheus_data:/prometheus
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    - --storage.tsdb.retention.time=7d
+  node_exporter:
+    image: prom/node-exporter:v1.9.0
+    restart: unless-stopped
+    networks:
+    - ml-scorer
+    pid: host
+    volumes:
+    - /:/host:ro,rslave
+    command:
+    - --path.rootfs=/host
+    - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+  grafana:
+    image: grafana/grafana:11.6.0
+    restart: unless-stopped
+    networks:
+    - ml-scorer
+    ports:
+    - 127.0.0.1:${GRAFANA_PORT:-3000}:3000
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+      GF_UNIFIED_ALERTING_ENABLED: 'true'
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/scoring.json
+    volumes:
+    - grafana_data:/var/lib/grafana
+    - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+networks:
+  ml-scorer:
+    driver: bridge
+volumes:
+  postgres_data: null
+  training_data: null
+  airflow_state: null
+  prometheus_data: null
+  grafana_data: null
+name: fraud-monitoring

@@ -1,4 +1,5 @@
-FROM apache/airflow:2.10.5-python3.11
+ARG BASE_IMAGE=apache/airflow:2.10.5-python3.11
+FROM ${BASE_IMAGE}
 
 USER airflow
 # Версии numpy/pandas зафиксированы: их обновление ломает Airflow 2.10.
