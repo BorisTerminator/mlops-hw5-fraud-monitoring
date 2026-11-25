@@ -1,0 +1,93 @@
+[
+  {
+    "time": 1795608405.6383207,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "inactive",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "time": 1795608415.6473296,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "inactive",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "time": 1795608425.6557803,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "inactive",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "time": 1795608435.664385,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "inactive",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "time": 1795608445.6741078,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "pending",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "inactive",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "time": 1795608455.6813855,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "pending",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "inactive",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "time": 1795608468.3400397,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "firing",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "inactive",
+        "health": "ok"
+      }
+    }
+  }
+]

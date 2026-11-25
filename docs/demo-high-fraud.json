@@ -1,0 +1,158 @@
+[
+  {
+    "utc_epoch": 1795608542.382131,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "inactive",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "utc_epoch": 1795608552.3899097,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "inactive",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "utc_epoch": 1795608562.3986218,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "pending",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "utc_epoch": 1795608572.4089897,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "pending",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "utc_epoch": 1795608582.417525,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "firing",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "utc_epoch": 1795608583.8642657,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "firing",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "utc_epoch": 1795608593.8724535,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "firing",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "utc_epoch": 1795608603.882949,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "firing",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "utc_epoch": 1795608613.8915472,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "firing",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "utc_epoch": 1795608623.899509,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "firing",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "utc_epoch": 1795608633.9093068,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "firing",
+        "health": "ok"
+      }
+    }
+  },
+  {
+    "utc_epoch": 1795608643.917271,
+    "alerts": {
+      "Fraud · stream stalled": {
+        "state": "inactive",
+        "health": "ok"
+      },
+      "Fraud · high flagged fraction": {
+        "state": "inactive",
+        "health": "ok"
+      }
+    }
+  }
+]

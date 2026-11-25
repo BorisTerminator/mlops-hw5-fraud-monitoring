@@ -14,3 +14,6 @@ reports/*
 !models/.gitkeep
 !reports/.gitkeep
 .env
+*.log
+.pytest_cache/
+.superpowers/

@@ -1,0 +1,264 @@
+{
+  "checked_at_utc": "2026-11-25T12:06:20Z",
+  "targets": {
+    "docker-host": "up",
+    "fraud-scorer": "up",
+    "fraud-writer": "up"
+  },
+  "dashboards": [
+    "fraud-scoring",
+    "fraud-storage",
+    "fraud-host",
+    "fraud-business"
+  ],
+  "scoring_growth_3s": {
+    "before": 1630.0,
+    "after": 1659.0
+  },
+  "panels": [
+    {
+      "dashboard": "fraud-business",
+      "panel": 1,
+      "query": "A",
+      "points": 4
+    },
+    {
+      "dashboard": "fraud-business",
+      "panel": 2,
+      "query": "A",
+      "points": 40
+    },
+    {
+      "dashboard": "fraud-business",
+      "panel": 3,
+      "query": "A",
+      "points": 36
+    },
+    {
+      "dashboard": "fraud-business",
+      "panel": 4,
+      "query": "A",
+      "points": 28
+    },
+    {
+      "dashboard": "fraud-business",
+      "panel": 5,
+      "query": "A",
+      "points": 18
+    },
+    {
+      "dashboard": "fraud-host",
+      "panel": 1,
+      "query": "A",
+      "points": 350
+    },
+    {
+      "dashboard": "fraud-host",
+      "panel": 2,
+      "query": "A",
+      "points": 352
+    },
+    {
+      "dashboard": "fraud-host",
+      "panel": 3,
+      "query": "A",
+      "points": 352
+    },
+    {
+      "dashboard": "fraud-host",
+      "panel": 4,
+      "query": "A",
+      "points": 368
+    },
+    {
+      "dashboard": "fraud-host",
+      "panel": 5,
+      "query": "A",
+      "points": 2450
+    },
+    {
+      "dashboard": "fraud-host",
+      "panel": 6,
+      "query": "A",
+      "points": 354
+    },
+    {
+      "dashboard": "fraud-host",
+      "panel": 6,
+      "query": "B",
+      "points": 354
+    },
+    {
+      "dashboard": "fraud-host",
+      "panel": 7,
+      "query": "A",
+      "points": 352
+    },
+    {
+      "dashboard": "fraud-host",
+      "panel": 7,
+      "query": "B",
+      "points": 352
+    },
+    {
+      "dashboard": "fraud-host",
+      "panel": 8,
+      "query": "A",
+      "points": 352
+    },
+    {
+      "dashboard": "fraud-host",
+      "panel": 8,
+      "query": "B",
+      "points": 352
+    },
+    {
+      "dashboard": "fraud-host",
+      "panel": 9,
+      "query": "A",
+      "points": 8496
+    },
+    {
+      "dashboard": "fraud-scoring",
+      "panel": 1,
+      "query": "A",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-scoring",
+      "panel": 2,
+      "query": "A",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-scoring",
+      "panel": 3,
+      "query": "A",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-scoring",
+      "panel": 4,
+      "query": "A",
+      "points": 344
+    },
+    {
+      "dashboard": "fraud-scoring",
+      "panel": 5,
+      "query": "A",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-scoring",
+      "panel": 5,
+      "query": "B",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-scoring",
+      "panel": 6,
+      "query": "A",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-scoring",
+      "panel": 6,
+      "query": "B",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-scoring",
+      "panel": 7,
+      "query": "A",
+      "points": 7524
+    },
+    {
+      "dashboard": "fraud-scoring",
+      "panel": 8,
+      "query": "A",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-scoring",
+      "panel": 9,
+      "query": "A",
+      "points": 1368
+    },
+    {
+      "dashboard": "fraud-scoring",
+      "panel": 10,
+      "query": "A",
+      "points": 4
+    },
+    {
+      "dashboard": "fraud-storage",
+      "panel": 1,
+      "query": "A",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-storage",
+      "panel": 2,
+      "query": "A",
+      "points": 344
+    },
+    {
+      "dashboard": "fraud-storage",
+      "panel": 3,
+      "query": "A",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-storage",
+      "panel": 4,
+      "query": "A",
+      "points": 344
+    },
+    {
+      "dashboard": "fraud-storage",
+      "panel": 5,
+      "query": "A",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-storage",
+      "panel": 6,
+      "query": "A",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-storage",
+      "panel": 7,
+      "query": "A",
+      "points": 7524
+    },
+    {
+      "dashboard": "fraud-storage",
+      "panel": 8,
+      "query": "A",
+      "points": 684
+    },
+    {
+      "dashboard": "fraud-storage",
+      "panel": 8,
+      "query": "B",
+      "points": 342
+    },
+    {
+      "dashboard": "fraud-storage",
+      "panel": 9,
+      "query": "A",
+      "points": 10
+    }
+  ],
+  "alerts": {
+    "Fraud · stream stalled": {
+      "state": "inactive",
+      "health": "ok"
+    },
+    "Fraud · high flagged fraction": {
+      "state": "inactive",
+      "health": "ok"
+    }
+  }
+}

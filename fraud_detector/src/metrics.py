@@ -20,6 +20,7 @@ class ScoringMetrics:
         self.ratio = Gauge('fraud_flag_ratio', 'Cumulative flagged fraction since process start', registry=registry)
         self.reloads = Counter('fraud_model_loads_total', 'Successful loads including bootstrap', ['version'], registry=registry)
         self.loaded_at = Gauge('fraud_model_loaded_timestamp_seconds', 'Last model load epoch', registry=registry)
+        self.version_loaded_at = Gauge('fraud_model_version_loaded_timestamp_seconds', 'Load epoch by version for reliable first-sample annotations', ['version'], registry=registry)
         self.total = self.fraud = 0
 
     def observe(self, result, duration):
@@ -42,3 +43,4 @@ class ScoringMetrics:
     def model_loaded(self, version):
         self.reloads.labels(version).inc()
         self.loaded_at.set(time.time())
+        self.version_loaded_at.labels(version).set(time.time())

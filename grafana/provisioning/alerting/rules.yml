@@ -1,0 +1,175 @@
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "fraud-service",
+      "folder": "Fraud Lab",
+      "interval": "10s",
+      "rules": [
+        {
+          "uid": "fraud-stream-stalled",
+          "title": "Fraud · stream stalled",
+          "condition": "C",
+          "for": "15s",
+          "noDataState": "Alerting",
+          "execErrState": "Alerting",
+          "annotations": {
+            "summary": "Нет успешных результатов >30 секунд; условие держится 15 секунд. Проверить producer, Kafka и scorer.",
+            "__dashboardUid__": "fraud-scoring",
+            "__panelId__": "4"
+          },
+          "labels": {
+            "team": "fraud-lab",
+            "severity": "warning"
+          },
+          "isPaused": false,
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 120,
+                "to": 0
+              },
+              "datasourceUid": "fraud-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "time() - max(fraud_last_success_timestamp_seconds)",
+                "legendFormat": "",
+                "range": false,
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "fraud-prometheus"
+                },
+                "instant": true,
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "A",
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "conditions": [
+                  {
+                    "type": "query",
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        30
+                      ]
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "query": {
+                      "params": [
+                        "C"
+                      ]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "uid": "fraud-high-flag-ratio",
+          "title": "Fraud · high flagged fraction",
+          "condition": "C",
+          "for": "20s",
+          "noDataState": "Alerting",
+          "execErrState": "Alerting",
+          "annotations": {
+            "summary": "Более 20% флагов за 1 минуту, минимум 20 обработанных сообщений; pending 20 секунд.",
+            "__dashboardUid__": "fraud-scoring",
+            "__panelId__": "3"
+          },
+          "labels": {
+            "team": "fraud-lab",
+            "severity": "warning"
+          },
+          "isPaused": false,
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 120,
+                "to": 0
+              },
+              "datasourceUid": "fraud-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(sum(increase(fraud_flagged_total[1m])) / clamp_min(sum(increase(fraud_scored_total[1m])),1)) * (sum(increase(fraud_scored_total[1m])) >= bool 20)",
+                "legendFormat": "",
+                "range": false,
+                "datasource": {
+                  "type": "prometheus",
+                  "uid": "fraud-prometheus"
+                },
+                "instant": true,
+                "intervalMs": 1000,
+                "maxDataPoints": 43200
+              }
+            },
+            {
+              "refId": "C",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "C",
+                "type": "threshold",
+                "expression": "A",
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "conditions": [
+                  {
+                    "type": "query",
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [
+                        0.2
+                      ]
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "query": {
+                      "params": [
+                        "C"
+                      ]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

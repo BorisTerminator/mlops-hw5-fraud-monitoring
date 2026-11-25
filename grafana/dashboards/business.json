@@ -1,0 +1,416 @@
+{
+  "uid": "fraud-business",
+  "title": "04 · Business — сегменты и риск",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": [
+    "mlops",
+    "fraud",
+    "hw-5"
+  ],
+  "timezone": "browser",
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Скоры, флаги и оборот сегмента",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "fraud-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "fraud-postgres"
+          },
+          "rawSql": "SELECT count(*) AS scores, avg(fraud_flag::double precision) AS flagged_fraction,\n       COALESCE(sum(amount), 0) AS turnover,\n       COALESCE(sum(amount * fraud_flag), 0) AS flagged_amount\nFROM scores\nWHERE $__timeFilter(created_at)\n  AND us_state IN (${us_state:sqlstring})\n  AND merch IN (${merch:sqlstring});\n",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code"
+        }
+      ],
+      "description": "Все бизнес-панели учитывают оба фильтра. Флаги — решения модели, не подтверждённое мошенничество.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flagged_fraction"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Плотность распределения скоров",
+      "type": "barchart",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "fraud-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "fraud-postgres"
+          },
+          "rawSql": "WITH selected AS (\n  SELECT LEAST(floor(score * 20)::int, 19) AS bin\n  FROM scores\n  WHERE $__timeFilter(created_at)\n    AND us_state IN (${us_state:sqlstring})\n    AND merch IN (${merch:sqlstring})\n), bins AS (\n  SELECT generate_series(0, 19) AS bin\n)\nSELECT to_char(b.bin * 0.05, 'FM0.00') AS score_bin,\n       count(s.bin)::double precision / GREATEST((SELECT count(*) FROM selected), 1) / 0.05 AS density\nFROM bins b LEFT JOIN selected s USING (bin)\nGROUP BY b.bin ORDER BY b.bin;\n",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code"
+        }
+      ],
+      "description": "20 бинов шириной 0.05. Сумма density × 0.05 = 1 для непустого сегмента.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 75
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "barWidth": 0.8,
+        "groupWidth": 0.7,
+        "showValue": "auto",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "xTickLabelRotation": 45
+      }
+    },
+    {
+      "id": 3,
+      "title": "TPS выбранного сегмента",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 12
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "fraud-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "fraud-postgres"
+          },
+          "rawSql": "SELECT $__timeGroupAlias(scored_at, '10s'), count(*) / 10.0 AS tps\nFROM scores\nWHERE $__timeFilter(scored_at)\n  AND us_state IN (${us_state:sqlstring})\n  AND merch IN (${merch:sqlstring})\nGROUP BY 1 ORDER BY 1;\n",
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code"
+        }
+      ],
+      "description": "Число обработанных транзакций / 10 секунд по scored_at. Крайние неполные интервалы могут занижать TPS.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Доля флагов по cat_id / последние 1000",
+      "type": "barchart",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 12
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "fraud-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "fraud-postgres"
+          },
+          "rawSql": "WITH recent AS (\n  SELECT * FROM scores ORDER BY id DESC LIMIT 1000\n)\nSELECT cat_id, avg(fraud_flag::double precision) AS flagged_fraction\nFROM recent\nWHERE us_state IN (${us_state:sqlstring})\n  AND merch IN (${merch:sqlstring})\nGROUP BY cat_id ORDER BY flagged_fraction DESC;\n",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code"
+        }
+      ],
+      "description": "Сначала глобально последние 1000 транзакций по id, затем фильтры; выбранный диапазон времени сюда не применяется.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 75
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "barWidth": 0.8,
+        "groupWidth": 0.7,
+        "showValue": "auto",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        },
+        "xTickLabelRotation": 0
+      }
+    },
+    {
+      "id": 5,
+      "title": "Оборот и сумма подозрительных операций",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "fraud-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "fraud-postgres"
+          },
+          "rawSql": "SELECT $__timeGroupAlias(created_at, '30s'),\n       sum(amount) AS turnover,\n       sum(amount * fraud_flag) AS flagged_amount\nFROM scores\nWHERE $__timeFilter(created_at)\n  AND us_state IN (${us_state:sqlstring})\n  AND merch IN (${merch:sqlstring})\nGROUP BY 1 ORDER BY 1;\n",
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code"
+        }
+      ],
+      "description": "Бизнес-метрика: одинаковая доля флагов может означать разный денежный риск. Это flagged amount, не фактические потери.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "us_state",
+        "label": "Штат / us_state",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "fraud-postgres"
+        },
+        "query": "SELECT DISTINCT us_state FROM scores WHERE us_state IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT us_state FROM scores WHERE us_state IS NOT NULL ORDER BY 1",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "sort": 1,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "merch",
+        "label": "Мерчант / merch",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "fraud-postgres"
+        },
+        "query": "SELECT DISTINCT merch FROM scores WHERE us_state IN (${us_state:sqlstring}) AND merch IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT merch FROM scores WHERE us_state IN (${us_state:sqlstring}) AND merch IS NOT NULL ORDER BY 1",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "sort": 1,
+        "options": [],
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "Fraud Lab",
+      "tags": [
+        "hw-5"
+      ],
+      "asDropdown": true
+    }
+  ]
+}

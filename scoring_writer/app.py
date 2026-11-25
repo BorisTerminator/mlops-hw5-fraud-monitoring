@@ -33,6 +33,10 @@ def create_table(conn):
                             ('amount','DOUBLE PRECISION'),('scored_at','TIMESTAMPTZ'),
                             ('emitted_at','TIMESTAMPTZ'),('transaction_time','TIMESTAMPTZ')]:
             cur.execute(f'ALTER TABLE scores ADD COLUMN IF NOT EXISTS {name} {dtype}')
+        cur.execute("""SELECT data_type FROM information_schema.columns
+                       WHERE table_schema='public' AND table_name='scores' AND column_name='created_at'""")
+        if cur.fetchone()[0] == 'timestamp without time zone':
+            cur.execute("ALTER TABLE scores ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC'")
         cur.execute('CREATE UNIQUE INDEX IF NOT EXISTS scores_transaction_id_uq ON scores(transaction_id)')
         cur.execute('CREATE INDEX IF NOT EXISTS scores_created_at_idx ON scores(created_at)')
         cur.execute('CREATE INDEX IF NOT EXISTS scores_segments_idx ON scores(us_state,merch,created_at)')

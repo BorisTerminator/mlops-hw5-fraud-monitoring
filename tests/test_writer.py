@@ -1,3 +1,4 @@
+import os
 import uuid
 import psycopg2
 import pytest
@@ -7,7 +8,7 @@ from scoring_writer import app
 
 @pytest.fixture
 def connection():
-    conn = psycopg2.connect(host='127.0.0.1', port=5433, dbname='fraud_db', user='fraud_user', password='fraud_pass')
+    conn = psycopg2.connect(host=os.getenv('TEST_POSTGRES_HOST','127.0.0.1'), port=int(os.getenv('TEST_POSTGRES_PORT','5433')), dbname='fraud_db', user='fraud_user', password='fraud_pass')
     app.create_table(conn)
     yield conn
     conn.rollback()
@@ -45,3 +46,9 @@ def test_failed_insert_rolls_back_and_does_not_count_success(connection):
     with connection.cursor() as cur:
         cur.execute('SELECT 1')
         assert cur.fetchone() == (1,)
+
+
+def test_event_times_are_timezone_aware_after_schema_migration(connection):
+    with connection.cursor() as cur:
+        cur.execute("SELECT data_type FROM information_schema.columns WHERE table_name='scores' AND column_name='created_at'")
+        assert cur.fetchone()==('timestamp with time zone',)

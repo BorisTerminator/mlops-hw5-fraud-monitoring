@@ -1,0 +1,43 @@
+{
+  "scorer_started_at": "2026-11-25T12:03:31.058508163Z",
+  "versions_in_database": [
+    "initial",
+    "201905_20261125T120518"
+  ],
+  "model_load_counter": [
+    {
+      "metric": {
+        "__name__": "fraud_model_loads_total",
+        "instance": "fraud_detector:8000",
+        "job": "fraud-scorer",
+        "version": "initial"
+      },
+      "value": [
+        1795608386.759,
+        "1"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "fraud_model_loads_total",
+        "instance": "fraud_detector:8000",
+        "job": "fraud-scorer",
+        "version": "201905_20261125T120518"
+      },
+      "value": [
+        1795608386.759,
+        "1"
+      ]
+    }
+  ],
+  "annotation_series": [
+    {
+      "version": "201905_20261125T120518",
+      "samples": 30
+    },
+    {
+      "version": "initial",
+      "samples": 29
+    }
+  ]
+}
