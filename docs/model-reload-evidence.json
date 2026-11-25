@@ -39,5 +39,11 @@
       "version": "initial",
       "samples": 29
     }
-  ]
+  ],
+  "exact_manual_run": {
+    "run_id": "manual__2026-11-25T12:04:12+00:00",
+    "state": "success",
+    "result": "201906_20261125T120640: published",
+    "version": "201906_20261125T120640"
+  }
 }

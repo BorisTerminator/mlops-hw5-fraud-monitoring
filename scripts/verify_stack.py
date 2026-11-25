@@ -55,6 +55,28 @@ def quote(values):
     return ','.join("'"+str(v).replace("'","''")+"'" for v in values) or "''"
 
 
+def assert_progress(before,after):
+    for name in ('scored','written','rows'):
+        assert after[name]>before[name],f'No {name} growth: {before[name]} -> {after[name]}'
+
+
+def assert_alerts(rules,states):
+    required={'fraud-stream-stalled':'Fraud · stream stalled',
+              'fraud-high-flag-ratio':'Fraud · high flagged fraction'}
+    by_uid={r['uid']:r for r in rules}
+    for uid,title in required.items():
+        assert uid in by_uid,f'Missing rule {uid}'
+        rule=by_uid[uid]
+        assert rule['title']==title and not rule.get('isPaused'),f'Invalid/paused rule {uid}'
+        assert states.get(title,{}).get('health')=='ok',f'Rule health is not ok: {title}'
+
+
+def progress_snapshot(stack):
+    return {'scored':float(stack.prom('sum(fraud_scored_total)')[0]['value'][1]),
+            'written':float(stack.prom('sum(fraud_written_total)')[0]['value'][1]),
+            'rows':int(stack.sql_values('SELECT count(*) FROM scores')[0])}
+
+
 def check():
     stack=Stack()
     evidence={'checked_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())}
@@ -66,11 +88,11 @@ def check():
     for uid in ['fraud-prometheus','fraud-postgres']:
         health=stack.get('/api/datasources/uid/'+uid+'/health')
         assert health['status']=='OK',health
-    before=float(stack.prom('sum(fraud_scored_total)')[0]['value'][1])
+    before=progress_snapshot(stack)
     time.sleep(3)
-    after=float(stack.prom('sum(fraud_scored_total)')[0]['value'][1])
-    assert after>before,(before,after)
-    evidence['scoring_growth_3s']={'before':before,'after':after}
+    after=progress_snapshot(stack)
+    assert_progress(before,after)
+    evidence['live_growth_3s']={'before':before,'after':after}
     replacements={name:quote(stack.sql_values(f'SELECT DISTINCT {name} FROM scores WHERE {name} IS NOT NULL ORDER BY 1')) for name in ['us_state','merch']}
     evidence['panels']=[]
     failures=[]
@@ -92,7 +114,7 @@ def check():
                 except Exception as exc:
                     failures.append(f"{doc['uid']} / {p['title']} / {q.get('refId')}: {exc}")
     evidence['alerts']=stack.alerts()
-    assert len(evidence['alerts'])>=2,evidence['alerts']
+    assert_alerts(stack.get('/api/v1/provisioning/alert-rules'),evidence['alerts'])
     if failures: raise AssertionError('\n'.join(failures))
     return evidence
 

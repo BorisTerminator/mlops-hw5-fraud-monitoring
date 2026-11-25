@@ -1,9 +1,11 @@
 """Kafka scoring -> PostgreSQL: at-least-once delivery, idempotent writes."""
 import json
 import logging
+import math
 import os
 import signal
 import time
+from datetime import datetime, timezone
 import psycopg2
 from confluent_kafka import Consumer
 from prometheus_client import start_http_server
@@ -45,6 +47,7 @@ def create_table(conn):
 
 
 def insert_score(conn, data, metrics=None):
+    data=validate_item(data)
     started = time.perf_counter()
     try:
         with conn.cursor() as cur:
@@ -64,6 +67,42 @@ def insert_score(conn, data, metrics=None):
         if inserted: metrics.observe(data, time.perf_counter()-started)
         else: metrics.duplicates.inc()
     return inserted
+
+
+def validate_item(data):
+    if not isinstance(data,dict):raise ValueError('Scoring item must be an object')
+    data=dict(data)
+    for name in ('transaction_id','model_version','us_state','merch','cat_id'):
+        value=data.get(name)
+        if name=='transaction_id' or value is not None:
+            if not isinstance(value,str) or not value.strip() or '\x00' in value:
+                raise ValueError(f'Invalid {name}')
+    for name in ('score','amount'):
+        value=data.get(name)
+        if name=='score' or value is not None:
+            if isinstance(value,bool):raise ValueError(f'Invalid {name}')
+            try:value=float(value)
+            except (ValueError,TypeError,OverflowError) as exc:raise ValueError(f'Invalid {name}') from exc
+            if not math.isfinite(value) or value<0 or (name=='score' and value>1):
+                raise ValueError(f'Invalid {name}')
+            data[name]=value
+    if not isinstance(data.get('fraud_flag'),int) or data['fraud_flag'] not in (0,1):
+        raise ValueError('fraud_flag must be 0 or 1')
+    for name in ('emitted_at','scored_at','transaction_time'):
+        value=data.get(name)
+        if value is not None:
+            if not isinstance(value,str):raise ValueError(f'Invalid {name}')
+            try:stamp=datetime.fromisoformat(value.replace('Z','+00:00'))
+            except ValueError as exc:raise ValueError(f'Invalid {name}') from exc
+            data[name]=stamp.replace(tzinfo=timezone.utc).isoformat() if stamp.tzinfo is None else stamp.isoformat()
+    return data
+
+
+def parse_payload(raw):
+    payload=json.loads(raw)
+    items=payload if isinstance(payload,list) else [payload]
+    if not items:raise ValueError('Empty batch')
+    return [validate_item(item) for item in items]
 
 
 def stop(signum, frame):
@@ -87,10 +126,7 @@ def run_consumer():
             if msg is None: continue
             if msg.error(): raise RuntimeError(str(msg.error()))
             try:
-                payload = json.loads(msg.value())
-                items = payload if isinstance(payload,list) else [payload]
-                if not items or any(not isinstance(d,dict) or not all(k in d for k in ('transaction_id','score','fraud_flag')) for d in items):
-                    raise ValueError('Invalid scoring payload')
+                items = parse_payload(msg.value())
             except (ValueError, TypeError):
                 metrics.errors.labels('input').inc()
                 logger.exception('Invalid payload at offset %s; skip', msg.offset())

@@ -632,8 +632,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "fraud_model_version_loaded_timestamp_seconds",
-          "legendFormat": "{{version}}",
+          "expr": "fraud_model_version_loaded_timestamp_seconds * 1000",
+          "legendFormat": "{{version}} · {{kind}}",
           "range": false,
           "datasource": {
             "type": "prometheus",
@@ -643,7 +643,7 @@
           "format": "table"
         }
       ],
-      "description": "Сохраняется до рестарта скорера; долговременная история версий — в Storage / PostgreSQL.",
+      "description": "Время в миллисекундах для Grafana. kind=startup — запуск процесса; reload — горячее обновление. История версий — также в Storage / PostgreSQL.",
       "fieldConfig": {
         "defaults": {
           "unit": "dateTimeAsIso",
@@ -702,8 +702,8 @@
         "hide": false,
         "iconColor": "#FFB357",
         "expr": "(time() - fraud_model_version_loaded_timestamp_seconds) < 30",
-        "titleFormat": "Модель {{version}}",
-        "textFormat": "Успешная загрузка модели {{version}} без рестарта",
+        "titleFormat": "Модель {{version}} · {{kind}}",
+        "textFormat": "Успешная загрузка {{version}} ({{kind}}: startup или reload)",
         "step": "1s",
         "tagKeys": "version"
       }

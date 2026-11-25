@@ -54,6 +54,14 @@ def high_fraud():
     return history
 
 
+def published_version(task_state,result):
+    if task_state!='success':
+        raise RuntimeError(f'publish_model state is {task_state}; skipped or failed publication is not a reload')
+    if not isinstance(result,str) or not result.endswith(': published'):
+        raise RuntimeError(f'Candidate rejected or not published: {result}')
+    return result.removesuffix(': published')
+
+
 def retrain():
     s=Stack()
     before=compose('exec','-T','fraud_detector','cat','/models/latest.txt',capture=True).strip()
@@ -72,10 +80,21 @@ def retrain():
         if run and run['state']=='success':break
         time.sleep(10)
     else:raise TimeoutError('Retraining exceeded 10 minutes')
-    after=compose('exec','-T','fraud_detector','cat','/models/latest.txt',capture=True).strip()
+    # Tie proof to this exact manual run, not another scheduled publication.
+    program="""import json,sys
+from airflow.models import TaskInstance
+from airflow.models.xcom import XCom
+from airflow.utils.session import create_session
+with create_session() as session:
+    ti=session.query(TaskInstance).filter_by(dag_id='retrain_catboost',run_id=sys.argv[1],task_id='publish_model').one_or_none()
+    value=XCom.get_one(dag_id='retrain_catboost',run_id=sys.argv[1],task_id='publish_model',key='return_value',session=session)
+    print(json.dumps({'state':ti.state if ti else None,'result':value}))
+"""
+    outcome_text=compose('exec','-T','airflow','python','-c',program,run_id,capture=True)
+    outcome=json.loads(outcome_text.strip().splitlines()[-1])
+    after=published_version(outcome['state'],outcome['result'])
     same_start=subprocess.check_output(['docker','inspect',cid,'--format','{{.State.StartedAt}}'],text=True).strip()==started
-    if after==before:
-        raise RuntimeError('DAG completed but candidate was rejected by the quality gate. See models/*.metrics.json. This is expected behavior; no reload event should appear.')
+    if after==before:raise RuntimeError('The run did not produce a new version')
     for _ in range(30):
         versions=s.sql_values('SELECT DISTINCT model_version FROM scores')
         if after in versions:break

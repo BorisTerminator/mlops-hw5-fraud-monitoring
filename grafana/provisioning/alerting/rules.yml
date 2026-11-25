@@ -93,8 +93,8 @@
           "title": "Fraud · high flagged fraction",
           "condition": "C",
           "for": "20s",
-          "noDataState": "Alerting",
-          "execErrState": "Alerting",
+          "noDataState": "OK",
+          "execErrState": "Error",
           "annotations": {
             "summary": "Более 20% флагов за 1 минуту, минимум 20 обработанных сообщений; pending 20 секунд.",
             "__dashboardUid__": "fraud-scoring",

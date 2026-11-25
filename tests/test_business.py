@@ -27,6 +27,7 @@ def database():
 def execute_query(conn,name,state='CA',merchant="O'Brien"):
     query=(ROOT/'grafana/queries'/f'{name}.sql').read_text()
     query=query.replace('$__timeFilter(created_at)','TRUE')
+    query=query.replace("$__timeGroupAlias(created_at, '30s')", "to_timestamp(floor(extract(epoch from created_at)/30)*30) AS time")
     for key,value in [('us_state',state),('merch',merchant)]:
         query=query.replace('${'+key+':sqlstring}',sql.Literal(value).as_string(conn))
     with conn.cursor() as cur:
@@ -59,3 +60,17 @@ def test_grafana_database_user_cannot_modify_data():
             assert cur.fetchone()[0]>0
             with pytest.raises(psycopg2.errors.InsufficientPrivilege):
                 cur.execute('DELETE FROM scores WHERE false')
+
+
+def test_grafana_reader_cannot_read_raw_customer_details():
+    with psycopg2.connect(host=os.getenv('TEST_POSTGRES_HOST','127.0.0.1'),port=int(os.getenv('TEST_POSTGRES_PORT','5433')),dbname='fraud_db',user='grafana_reader',password='grafana_reader') as conn:
+        with conn.cursor() as cur:
+            with pytest.raises(psycopg2.errors.InsufficientPrivilege):
+                cur.execute('SELECT name_1,street FROM labeled_transactions LIMIT 1')
+
+
+def test_risky_amount_fraction_and_zero_turnover(database):
+    assert execute_query(database,'risky_turnover')[0][3]==1.0
+    assert execute_query(database,'risky_turnover',state='NY')[0][3]==0.0
+    with database.cursor() as cur:cur.execute('UPDATE scores SET amount=0')
+    assert execute_query(database,'risky_turnover')[0][3] is None

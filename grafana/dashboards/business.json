@@ -304,7 +304,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "fraud-postgres"
           },
-          "rawSql": "SELECT $__timeGroupAlias(created_at, '30s'),\n       sum(amount) AS turnover,\n       sum(amount * fraud_flag) AS flagged_amount\nFROM scores\nWHERE $__timeFilter(created_at)\n  AND us_state IN (${us_state:sqlstring})\n  AND merch IN (${merch:sqlstring})\nGROUP BY 1 ORDER BY 1;\n",
+          "rawSql": "SELECT $__timeGroupAlias(created_at, '30s'),\n       sum(amount) AS turnover,\n       sum(amount * fraud_flag) AS flagged_amount,\n       sum(amount * fraud_flag) / NULLIF(sum(amount), 0) AS flagged_amount_fraction\nFROM scores\nWHERE $__timeFilter(created_at)\n  AND us_state IN (${us_state:sqlstring})\n  AND merch IN (${merch:sqlstring})\nGROUP BY 1 ORDER BY 1;\n",
           "format": "time_series",
           "rawQuery": true,
           "editorMode": "code"
@@ -333,7 +333,24 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flagged_amount_fraction"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {

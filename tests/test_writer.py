@@ -40,12 +40,32 @@ def test_failed_insert_rolls_back_and_does_not_count_success(connection):
     from scoring_writer.writer_metrics import WriterMetrics
     registry = CollectorRegistry()
     metrics = WriterMetrics(registry)
+    with connection.cursor() as cur:
+        cur.execute('CREATE TEMP TABLE scores (LIKE public.scores INCLUDING ALL)')
+        cur.execute('ALTER TABLE scores ADD CHECK (score < 0.9)')
+    connection.commit()
     with pytest.raises(psycopg2.Error):
-        app.insert_score(connection, dict(transaction_id=None,score=.3,fraud_flag=0), metrics)
+        app.insert_score(connection, dict(transaction_id='test-valid-but-db-rejects',score=.95,fraud_flag=0), metrics)
     assert registry.get_sample_value('fraud_written_total') == 0
     with connection.cursor() as cur:
         cur.execute('SELECT 1')
         assert cur.fetchone() == (1,)
+
+
+@pytest.mark.parametrize('field,value',[('transaction_id',None),('score',float('nan')),('score',1.1),
+                                      ('fraud_flag',2),('amount',float('inf')),('emitted_at','bad-date')])
+def test_writer_rejects_permanently_invalid_items_before_database(connection,field,value):
+    data=dict(transaction_id='test-input-invalid',score=.3,fraud_flag=0)
+    data[field]=value
+    with pytest.raises(ValueError):
+        app.insert_score(connection,data)
+
+
+def test_writer_validates_entire_batch_before_returning_items():
+    import json
+    with pytest.raises(ValueError):
+        app.parse_payload(json.dumps([dict(transaction_id='one',score=.3,fraud_flag=0),
+                                      dict(transaction_id='two',score='NaN',fraud_flag=0)]))
 
 
 def test_event_times_are_timezone_aware_after_schema_migration(connection):

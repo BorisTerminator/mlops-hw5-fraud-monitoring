@@ -27,36 +27,36 @@
 ### Task 1: Instrument streaming scorer
 **Files:** fraud_detector/src/{service,scorer,metrics}.py, requirements.txt; tests/test_scoring.py.
 **Interfaces:** score_batch(scorer, ids, rows) -> list[dict] includes segment fields and event timestamps; ScoringMetrics(registry).observe(result, duration); VersionedScorer.refresh() -> bool.
-- [ ] Write tests: output preserves CA / merchant with apostrophe / category / amount; malformed input increments errors; failed reload retains old predictions and valid version.
-- [ ] Run failing tests in container derived from cached HW-3 scorer (install prometheus-client and pytest).
-- [ ] Implement counters/histograms, last-success time, fraud ratio, reload counter by version and safe reload.
-- [ ] Run tests green and commit.
+- [x] Write tests: output preserves CA / merchant with apostrophe / category / amount; malformed input increments errors; failed reload retains old predictions and valid version.
+- [x] Run failing tests in container derived from cached HW-3 scorer (install prometheus-client and pytest).
+- [x] Implement counters/histograms, last-success time, fraud ratio, reload counter by version and safe reload.
+- [x] Run tests green and commit.
 
 ### Task 2: Commit-aware writer and schema
 **Files:** scoring_writer/{app,metrics}.py, postgres/init.sql, tests/test_writer.py.
 **Interfaces:** insert_score(conn, data, metrics) -> bool (true only for new committed row). Unique transaction_id, segment columns and TIMESTAMPTZ processing times; read-only grafana_reader.
-- [ ] Test against actual PostgreSQL: duplicate delivery inserts once, stored dimensions exact, DB failure doesn't increment metrics, rollback permits next write.
-- [ ] Verify RED, implement explicit commit offsets, DB rollback/retry on transient failure, successful-only metrics and readonly role.
-- [ ] Verify GREEN and commit.
+- [x] Test against actual PostgreSQL: duplicate delivery inserts once, stored dimensions exact, DB failure doesn't increment metrics, rollback permits next write.
+- [x] Verify RED, implement explicit commit offsets, DB rollback/retry on transient failure, successful-only metrics and readonly role.
+- [x] Verify GREEN and commit.
 
 ### Task 3: Reproducible monitoring infrastructure
 **Files:** docker-compose.yml, prometheus/prometheus.yml, grafana/provisioning/{datasources,dashboards,alerting}/*, grafana/dashboards/*.json, scripts/generate_dashboards.py.
 **Interfaces:** datasource UIDs fraud-prometheus / fraud-postgres; dashboard UIDs fraud-scoring / fraud-storage / fraud-host / fraud-business.
-- [ ] Implement independent provisioning, local isolated network/volumes and healthchecks; preserve Airflow training.
-- [ ] Build dashboards using small Python generator, store both generator and JSON. Use :sqlstring for state/merch, Grafana PostgreSQL time macros.
-- [ ] Add stream-stalled (>30s for 15s) and high-fraud (>20% in 1m, minimum 20 messages, for 20s) Grafana rules.
-- [ ] Run compose config, promtool, provisioned datasource health and every panel query via Grafana API; verify nonempty data. Commit.
+- [x] Implement independent provisioning, local isolated network/volumes and healthchecks; preserve Airflow training.
+- [x] Build dashboards using small Python generator, store both generator and JSON. Use :sqlstring for state/merch, Grafana PostgreSQL time macros.
+- [x] Add stream-stalled (>30s for 15s) and high-fraud (>20% in 1m, minimum 20 messages, for 20s) Grafana rules.
+- [x] Run compose config, promtool, provisioned datasource health and every panel query via Grafana API; verify nonempty data. Commit.
 
 ### Task 4: Live acceptance and model publication
 **Files:** scripts/{verify_stack,demo}.py, tests/test_business.py, docs/verification.md.
 **Interfaces:** python scripts/verify_stack.py checks actual running endpoints; docker compose exec airflow airflow dags trigger retrain_catboost.
-- [ ] Start all containers and check growing traffic, all 3 scrape targets, DB inserts, nonempty panels and SELECT-only datasource.
-- [ ] Trigger real retraining. Capture old/new model version and unchanged scorer start time; query annotation expression and rows for both versions.
-- [ ] Pause simulator to demonstrate alert firing, resume and verify recovery. Demonstrate high-fraud via configurable threshold and restore normal settings.
-- [ ] Test SQL filtering and latest-1000 semantics with known rows in real PostgreSQL, including apostrophes. Save evidence and commit.
+- [x] Start all containers and check growing traffic, all 3 scrape targets, DB inserts, nonempty panels and SELECT-only datasource.
+- [x] Trigger real retraining. Capture old/new model version and unchanged scorer start time; query annotation expression and rows for both versions.
+- [x] Pause simulator to demonstrate alert firing, resume and verify recovery. Demonstrate high-fraud via configurable threshold and restore normal settings.
+- [x] Test SQL filtering and latest-1000 semantics with known rows in real PostgreSQL, including apostrophes. Save evidence and commit.
 
 ### Task 5: Explain and package
 **Files:** README.md, docs/walkthrough.md, .gitignore, .env.example.
-- [ ] Russian README: setup, credentials, dashboard links, all metrics, novel metrics vs seminar, alert thresholds/tests, retrain/publication demo, limitations.
-- [ ] Step-by-step walkthrough: follow one transaction, explain counters/rate/histograms/SQL vs Prometheus, guided practical experiments.
-- [ ] Final test suite, fresh reviewer, fix material issues, clean git state, prepare public repository after reviewing publish authorization.
+- [x] Russian README: setup, credentials, dashboard links, all metrics, novel metrics vs seminar, alert thresholds/tests, retrain/publication demo, limitations.
+- [x] Step-by-step walkthrough: follow one transaction, explain counters/rate/histograms/SQL vs Prometheus, guided practical experiments.
+- [x] Final test suite, fresh reviewer, fix material issues, clean git state, prepare public repository after reviewing publish authorization.

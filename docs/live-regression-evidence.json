@@ -1,0 +1,14 @@
+{
+  "bad_input_error_delta": 3.0,
+  "bad_writer_error_delta": 2.0,
+  "valid_message_persisted": 1,
+  "before_starts": {
+    "fraud-monitoring-fraud_detector-1": "2026-11-25T12:27:19.882444853Z 0",
+    "fraud-monitoring-scoring_writer-1": "2026-11-25T12:27:19.373657935Z 0"
+  },
+  "after_starts": {
+    "fraud-monitoring-fraud_detector-1": "2026-11-25T12:27:19.882444853Z 0",
+    "fraud-monitoring-scoring_writer-1": "2026-11-25T12:27:19.373657935Z 0"
+  },
+  "stalled_writer_correctly_rejected": "No written growth: 1041.0 -> 1041.0"
+}

@@ -8,11 +8,13 @@
 import logging
 import os
 import shutil
+import math
 from pathlib import Path
 
 from catboost import CatBoostClassifier
+import pandas as pd
 
-from preprocessing import Preprocessor
+from preprocessing import CATEGORICAL_COLS, Preprocessor
 
 logger = logging.getLogger(__name__)
 
@@ -48,20 +50,35 @@ class VersionedScorer:
         self.version = None
         self.model = None
         self.preprocessor = None
+        self.last_reload_error = None
 
     def refresh(self):
         """Сверяет версию с latest.txt и при смене загружает модель и препроцессинг."""
-        version = (MODELS_DIR / 'latest.txt').read_text(encoding='utf-8').strip()
-        if version == self.version:
-            return False
+        self.last_reload_error=None
         try:
+            version = (MODELS_DIR / 'latest.txt').read_text(encoding='utf-8').strip()
+            if not version:raise ValueError('latest.txt is empty')
+            if version == self.version:return False
             model = CatBoostClassifier(thread_count=2)
             model.load_model(str(model_path(version)))
             preprocessor = Preprocessor(str(artifacts_path(version)))
-        except Exception:
+            # A readable JSON is not proof the pair can score. Smoke-test all
+            # generated feature names and a real CPU prediction before activation.
+            probe={c:'__validation_unknown__' for c in CATEGORICAL_COLS}
+            probe.update(lat=0.,lon=0.,merchant_lat=1.,merchant_lon=1.,amount=1.,
+                         population_city=100,transaction_time='2026-01-01 12:00:00')
+            features=preprocessor.transform(pd.DataFrame([probe]))[model.feature_names_]
+            for idx in model.get_cat_feature_indices():
+                name=model.feature_names_[idx]
+                features[name]=features[name].astype(str)
+            prediction=float(model.predict_proba(features,thread_count=2)[0,1])
+            if not math.isfinite(prediction) or not 0<=prediction<=1:
+                raise ValueError('Candidate returned an invalid probability')
+        except Exception as exc:
+            self.last_reload_error=str(exc)
             if self.model is None:
                 raise
-            logger.exception('Не удалось загрузить %s; работаем на %s', version, self.version)
+            logger.exception('Не удалось обновить модель; работаем на %s', self.version)
             return False
         self.model, self.preprocessor, self.version = model, preprocessor, version
         logger.info('Загружена модель версии %s: %d признаков', version, len(model.feature_names_))

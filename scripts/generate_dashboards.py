@@ -63,10 +63,10 @@ def make_scoring():
       heatmap(7,'Распределение скоров во времени', 'sum by(le)(increase(fraud_score_bucket[10s]))',0,12),
       panel(8,'Возраст события / p95',12,12,targets=[target('histogram_quantile(0.95,sum by(le)(rate(fraud_event_age_seconds_bucket[1m])))','эмиссия → результат')],unit='s',description='Собственная метрика: обнаруживает очередь, даже когда inference быстрый. Часы producer и scorer должны быть синхронизированы.'),
       panel(9,'Ошибки по этапам',0,20,targets=[target('sum by(stage)(increase(fraud_errors_total[1m]))','{{stage}}')]),
-      panel(10,'История загрузок моделей',12,20,kind='table',targets=[dict(target('fraud_model_version_loaded_timestamp_seconds','{{version}}'),instant=True,range=False,format='table')],unit='dateTimeAsIso',description='Сохраняется до рестарта скорера; долговременная история версий — в Storage / PostgreSQL.')]
+      panel(10,'История загрузок моделей',12,20,kind='table',targets=[dict(target('fraud_model_version_loaded_timestamp_seconds * 1000','{{version}} · {{kind}}'),instant=True,range=False,format='table')],unit='dateTimeAsIso',description='Время в миллисекундах для Grafana. kind=startup — запуск процесса; reload — горячее обновление. История версий — также в Storage / PostgreSQL.')]
     annotations=[{'name':'Model loaded (30 seconds)','datasource':PROM,'enable':True,'hide':False,
                   'iconColor':'#FFB357','expr':'(time() - fraud_model_version_loaded_timestamp_seconds) < 30',
-                  'titleFormat':'Модель {{version}}','textFormat':'Успешная загрузка модели {{version}} без рестарта',
+                  'titleFormat':'Модель {{version}} · {{kind}}','textFormat':'Успешная загрузка {{version}} ({{kind}}: startup или reload)',
                   'step':'1s','tagKeys':'version'}]
     return dashboard('fraud-scoring','01 · Scoring — поток и модель',panels,annotations=annotations)
 
@@ -138,6 +138,7 @@ def main():
                 p['gridPos']['h']=12
             if filename=='business' and p['id']==5:
                 p['gridPos'].update(y=20,w=24)
+                p['fieldConfig']['overrides'].append({'matcher':{'id':'byName','options':'flagged_amount_fraction'},'properties':[{'id':'unit','value':'percentunit'},{'id':'custom.axisPlacement','value':'right'}]})
             if filename=='storage' and p['id']==9:
                 p['gridPos']['w']=24
             if p['type']=='heatmap':
@@ -151,6 +152,8 @@ def main():
            alert('fraud-high-flag-ratio','Fraud · high flagged fraction',
                  '(sum(increase(fraud_flagged_total[1m])) / clamp_min(sum(increase(fraud_scored_total[1m])),1)) * (sum(increase(fraud_scored_total[1m])) >= bool 20)',
                  'gt',.2,'20s','Более 20% флагов за 1 минуту, минимум 20 обработанных сообщений; pending 20 секунд.',3)]
+    rules[1]['noDataState']='OK'
+    rules[1]['execErrState']='Error'
     cfg={'apiVersion':1,'groups':[{'orgId':1,'name':'fraud-service','folder':'Fraud Lab','interval':'10s','rules':rules}]}
     (ROOT/'grafana/provisioning/alerting/rules.yml').write_text(json.dumps(cfg,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     print('Generated 4 dashboards and 2 alert rules')

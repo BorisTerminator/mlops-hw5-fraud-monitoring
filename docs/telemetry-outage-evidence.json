@@ -1,0 +1,14 @@
+{
+  "time": 1795609566.976332,
+  "alerts": {
+    "Fraud · stream stalled": {
+      "state": "firing",
+      "health": "ok"
+    },
+    "Fraud · high flagged fraction": {
+      "state": "inactive",
+      "health": "ok"
+    }
+  },
+  "scorer_metric": []
+}
