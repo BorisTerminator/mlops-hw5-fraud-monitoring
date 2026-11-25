@@ -1,110 +1,107 @@
-"""Kafka-сервис скоринга: читает транзакции из топика, пишет скор, флаг фрода и версию модели.
-
-Входное сообщение:  {"transaction_id": "...", "data": {<строка train/test.csv>}}
-Выходное сообщение: {"transaction_id": "...", "score": 0.0123, "fraud_flag": 0, "model_version": "20261022T101500"}
-"""
+"""Живой Kafka-скоринг: подтверждение доставки и метрики на транзакцию."""
 import json
 import logging
 import os
 import signal
+import time
+from datetime import datetime, timezone
 
 import pandas as pd
 from confluent_kafka import Consumer, Producer
-
-from scorer import VersionedScorer, ensure_bootstrap
+from prometheus_client import start_http_server
+from metrics import ScoringMetrics
+from scorer import MODELS_DIR, VersionedScorer, ensure_bootstrap
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s %(message)s')
 logger = logging.getLogger('fraud_detector')
-
-KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
-TRANSACTIONS_TOPIC = os.getenv('KAFKA_TRANSACTIONS_TOPIC', 'transactions')
-SCORING_TOPIC = os.getenv('KAFKA_SCORING_TOPIC', 'scoring')
-BATCH_SIZE = int(os.getenv('BATCH_SIZE', '100'))
-
 running = True
 
 
 def stop(signum, frame):
     global running
-    logger.info('Got signal %s, stopping...', signum)
     running = False
 
 
-def parse(messages):
+def parse(messages, metrics=None):
     ids, rows = [], []
     for msg in messages:
         if msg.error():
-            logger.error('Kafka error: %s', msg.error())
-            continue
+            raise RuntimeError(str(msg.error()))
         try:
             payload = json.loads(msg.value())
-            ids.append(str(payload['transaction_id']))
-            rows.append(payload['data'])
-        except (ValueError, KeyError, TypeError) as e:
-            logger.warning('Skip malformed message at offset %s: %s', msg.offset(), e)
+            tid, row = str(payload['transaction_id']), payload['data']
+            if not isinstance(row, dict):
+                raise ValueError('data must be an object')
+            ids.append(tid)
+            rows.append(row)
+        except (ValueError, KeyError, TypeError) as exc:
+            if metrics:
+                metrics.errors.labels('input').inc()
+            logger.warning('Malformed offset %s: %s', msg.offset(), exc)
     return ids, rows
 
 
 def score_batch(scorer, ids, rows):
     scores, flags, version = scorer.predict(pd.DataFrame(rows))
-    return [
-        {'transaction_id': tid, 'score': float(s), 'fraud_flag': int(f), 'model_version': version}
-        for tid, s, f in zip(ids, scores, flags)
-    ]
-
-
-def score(scorer, ids, rows):
-    try:
-        return score_batch(scorer, ids, rows)
-    except Exception:
-        # Одна битая строка не должна ронять весь батч — скорим по одной
-        logger.exception('Batch scoring failed, falling back to one-by-one')
-    results = []
-    for tid, row in zip(ids, rows):
-        try:
-            results.extend(score_batch(scorer, [tid], [row]))
-        except Exception as e:
-            logger.error('Skip transaction %s: %s', tid, e)
-    return results
+    now = datetime.now(timezone.utc).isoformat()
+    return [dict(transaction_id=tid, score=float(s), fraud_flag=int(f), model_version=version,
+                 us_state=str(row.get('us_state') or 'unknown'), merch=str(row.get('merch') or 'unknown'),
+                 cat_id=str(row.get('cat_id') or 'unknown'), amount=float(row.get('amount') or 0),
+                 transaction_time=row.get('transaction_time'), emitted_at=row.get('emitted_at'), scored_at=now)
+            for tid, row, s, f in zip(ids, rows, scores, flags)]
 
 
 def main():
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
-
+    metrics = ScoringMetrics()
+    start_http_server(int(os.getenv('METRICS_PORT', '8000')))
     ensure_bootstrap()
     scorer = VersionedScorer()
-
-    consumer = Consumer({
-        'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
-        'group.id': 'ml-scorer',
-        'auto.offset.reset': 'earliest',
-        'enable.auto.commit': False,
-    })
-    producer = Producer({'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS})
-    consumer.subscribe([TRANSACTIONS_TOPIC])
-    logger.info('Listening %s -> %s on %s', TRANSACTIONS_TOPIC, SCORING_TOPIC, KAFKA_BOOTSTRAP_SERVERS)
-
+    brokers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
+    consumer = Consumer({'bootstrap.servers': brokers, 'group.id': 'fraud-monitoring-scorer',
+                         'auto.offset.reset': 'earliest', 'enable.auto.commit': False})
+    producer = Producer({'bootstrap.servers': brokers, 'enable.idempotence': True, 'acks': 'all'})
+    consumer.subscribe([os.getenv('KAFKA_TRANSACTIONS_TOPIC', 'transactions')])
     try:
         while running:
-            messages = consumer.consume(num_messages=BATCH_SIZE, timeout=1.0)
-            if not messages:
+            if scorer.refresh():
+                metrics.model_loaded(scorer.version)
+            elif (MODELS_DIR / 'latest.txt').read_text().strip() != scorer.version:
+                metrics.errors.labels('reload').inc()
+            msg = consumer.poll(1.0)
+            if msg is None:
                 continue
-            # Новая версия из latest.txt подхватывается здесь, без перезапуска контейнера
-            scorer.refresh()
-            ids, rows = parse(messages)
-            results = score(scorer, ids, rows) if rows else []
-            for result in results:
-                producer.produce(SCORING_TOPIC, key=result['transaction_id'], value=json.dumps(result))
-            producer.flush()
-            # Оффсеты фиксируем только после того, как результаты ушли в Kafka
-            consumer.commit(asynchronous=False)
-            n_fraud = sum(r['fraud_flag'] for r in results)
-            logger.info('Scored %d of %d messages, fraud: %d, model %s',
-                        len(results), len(messages), n_fraud, scorer.version)
+            ids, rows = parse([msg], metrics)
+            if not rows:
+                consumer.commit(message=msg, asynchronous=False)
+                continue
+            started = time.perf_counter()
+            try:
+                result = score_batch(scorer, ids, rows)[0]
+            except Exception:
+                metrics.errors.labels('inference').inc()
+                logger.exception('Cannot score %s; skip invalid transaction', ids[0])
+                consumer.commit(message=msg, asynchronous=False)
+                continue
+            duration = time.perf_counter() - started
+            delivery_errors = []
+
+            def delivered(error, _message):
+                if error:
+                    delivery_errors.append(str(error))
+
+            producer.produce(os.getenv('KAFKA_SCORING_TOPIC', 'scoring'), key=result['transaction_id'],
+                             value=json.dumps(result, allow_nan=False), on_delivery=delivered)
+            remaining = producer.flush(15)
+            if remaining or delivery_errors:
+                metrics.errors.labels('publish').inc()
+                raise RuntimeError(f'Kafka delivery failed: remaining={remaining}, errors={delivery_errors}')
+            metrics.observe(result, duration)
+            consumer.commit(message=msg, asynchronous=False)
     finally:
         consumer.close()
-        producer.flush()
+        producer.flush(5)
 
 
 if __name__ == '__main__':

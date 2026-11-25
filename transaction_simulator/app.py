@@ -6,7 +6,7 @@ import os
 import random
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -50,6 +50,7 @@ def build_message(row: pd.Series) -> dict:
     """Собирает сообщение топика transactions: новый id и текущее время события."""
     data = {column: json_safe(value) for column, value in row.items()}
     data["transaction_time"] = datetime.now().strftime(TIME_FORMAT)
+    data['emitted_at'] = datetime.now(timezone.utc).isoformat()
     return {
         "transaction_id": str(uuid.uuid4()),
         "data": data,

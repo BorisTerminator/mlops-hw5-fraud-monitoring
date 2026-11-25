@@ -53,13 +53,19 @@ class VersionedScorer:
         """Сверяет версию с latest.txt и при смене загружает модель и препроцессинг."""
         version = (MODELS_DIR / 'latest.txt').read_text(encoding='utf-8').strip()
         if version == self.version:
-            return
-        model = CatBoostClassifier()
-        model.load_model(str(model_path(version)))
-        self.preprocessor = Preprocessor(str(artifacts_path(version)))
-        self.model = model
-        self.version = version
+            return False
+        try:
+            model = CatBoostClassifier(thread_count=2)
+            model.load_model(str(model_path(version)))
+            preprocessor = Preprocessor(str(artifacts_path(version)))
+        except Exception:
+            if self.model is None:
+                raise
+            logger.exception('Не удалось загрузить %s; работаем на %s', version, self.version)
+            return False
+        self.model, self.preprocessor, self.version = model, preprocessor, version
         logger.info('Загружена модель версии %s: %d признаков', version, len(model.feature_names_))
+        return True
 
     def predict(self, raw_df):
         """Сырые транзакции -> (скоры, флаги, версия модели)."""

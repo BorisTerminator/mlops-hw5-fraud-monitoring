@@ -5,3 +5,4 @@ Pre-flight: Tasks 1→2 share enriched output fields; Tasks 1/2→3 share metric
 Ruling: independent HW-5 repository on feat/monitoring is the isolation boundary; no linked worktree required because this is a new project.
 Ruling: Prometheus localhost:9091 avoids AdGuard VPN localhost:9090. PostgreSQL localhost:5433 avoids other homework defaults.
 Baseline: HW-3 source copied from git-tracked files only; no existing automated suite. Docker daemon started; no running containers.
+Task 1: complete — 4 scoring tests RED then GREEN. IDs/context preserved, metrics measured, reload failure retains model. Local venv uses existing host scientific packages; runtime uses pinned container dependencies.
