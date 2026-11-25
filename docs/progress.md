@@ -22,3 +22,4 @@ Ruling: startup race traced to stale ZooKeeper broker session when containers we
 Final: suite 35/35 Windows, 35/35 pinned Python 3.11 Linux. All panel queries return data, all targets up, two rules healthy/inactive, successful writes increase.
 Final: declined-to-judge production HA, external alert delivery, model quality remain outside assignment. No new requirement omitted.
 Task 5: complete locally — Russian README, 12-step walkthrough, verification evidence and source archive ready. Public GitHub publication is the final separate approval step in the approved design.
+Final UI verification: model table applies datetime formatting only to numeric Value (milliseconds), not string labels. Browser confirms startup / actual model version / 2026-11-25 timestamp; business category names readable as horizontal bars.

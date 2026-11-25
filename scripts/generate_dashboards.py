@@ -63,7 +63,7 @@ def make_scoring():
       heatmap(7,'Распределение скоров во времени', 'sum by(le)(increase(fraud_score_bucket[10s]))',0,12),
       panel(8,'Возраст события / p95',12,12,targets=[target('histogram_quantile(0.95,sum by(le)(rate(fraud_event_age_seconds_bucket[1m])))','эмиссия → результат')],unit='s',description='Собственная метрика: обнаруживает очередь, даже когда inference быстрый. Часы producer и scorer должны быть синхронизированы.'),
       panel(9,'Ошибки по этапам',0,20,targets=[target('sum by(stage)(increase(fraud_errors_total[1m]))','{{stage}}')]),
-      panel(10,'История загрузок моделей',12,20,kind='table',targets=[dict(target('fraud_model_version_loaded_timestamp_seconds * 1000','{{version}} · {{kind}}'),instant=True,range=False,format='table')],unit='dateTimeAsIso',description='Время в миллисекундах для Grafana. kind=startup — запуск процесса; reload — горячее обновление. История версий — также в Storage / PostgreSQL.')]
+      panel(10,'История загрузок моделей',12,20,kind='table',targets=[dict(target('fraud_model_version_loaded_timestamp_seconds * 1000','{{version}} · {{kind}}'),instant=True,range=False,format='table')],description='Время в миллисекундах для Grafana. kind=startup — запуск процесса; reload — горячее обновление. История версий — также в Storage / PostgreSQL.')]
     annotations=[{'name':'Model loaded (30 seconds)','datasource':PROM,'enable':True,'hide':False,
                   'iconColor':'#FFB357','expr':'(time() - fraud_model_version_loaded_timestamp_seconds) < 30',
                   'titleFormat':'Модель {{version}} · {{kind}}','textFormat':'Успешная загрузка {{version}} ({{kind}}: startup или reload)',
@@ -127,6 +127,9 @@ def alert(uid,title,expr,op,threshold,pending,description,panel_id):
 def main():
     for filename,body in [('scoring',make_scoring()),('storage',make_storage()),('host',make_host()),('business',make_business())]:
         for p in body['panels']:
+            if filename=='scoring' and p['id']==10:
+                p['fieldConfig']['overrides'].append({'matcher':{'id':'byName','options':'Value'},'properties':[{'id':'unit','value':'dateTimeAsIso'}]})
+                p['transformations']=[{'id':'organize','options':{'excludeByName':{'Time':True,'instance':True,'job':True}}}]
             if p['type']=='barchart':
                 p['fieldConfig']['defaults']['custom']['fillOpacity']=75
                 p['options']['xTickLabelRotation']=45

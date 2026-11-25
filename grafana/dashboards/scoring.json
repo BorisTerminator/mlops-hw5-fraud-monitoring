@@ -646,7 +646,7 @@
       "description": "Время в миллисекундах для Grafana. kind=startup — запуск процесса; reload — горячее обновление. История версий — также в Storage / PostgreSQL.",
       "fieldConfig": {
         "defaults": {
-          "unit": "dateTimeAsIso",
+          "unit": "short",
           "color": {
             "mode": "palette-classic"
           },
@@ -670,6 +670,18 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsIso"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "flagged_fraction"
             },
             "properties": [
@@ -684,7 +696,19 @@
       "options": {
         "showHeader": true,
         "cellHeight": "sm"
-      }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "instance": true,
+              "job": true
+            }
+          }
+        }
+      ]
     }
   ],
   "templating": {
