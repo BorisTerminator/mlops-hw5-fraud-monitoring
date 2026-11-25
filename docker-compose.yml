@@ -12,6 +12,7 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    restart: unless-stopped
   kafka:
     image: confluentinc/cp-kafka:7.3.0
     depends_on:
@@ -23,11 +24,12 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9095
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:${KAFKA_PORT:-9095}
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9095
     healthcheck:
       test:
       - CMD
@@ -38,6 +40,7 @@ services:
       interval: 5s
       timeout: 10s
       retries: 20
+    restart: unless-stopped
   kafka-setup:
     image: confluentinc/cp-kafka:7.3.0
     depends_on:
@@ -73,6 +76,7 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    restart: unless-stopped
   postgres:
     image: postgres:15
     networks:
@@ -93,6 +97,7 @@ services:
       interval: 5s
       timeout: 10s
       retries: 20
+    restart: unless-stopped
   fraud_detector:
     build:
       context: ./fraud_detector
@@ -114,6 +119,16 @@ services:
         condition: service_completed_successfully
     ports:
     - 127.0.0.1:${SCORER_METRICS_PORT:-8000}:8000
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/metrics',timeout=2)
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
   transaction_simulator:
     build:
       context: ./transaction_simulator
@@ -155,6 +170,16 @@ services:
         condition: service_completed_successfully
     ports:
     - 127.0.0.1:${WRITER_METRICS_PORT:-8001}:8001
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/metrics',timeout=2)
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
   data_loader:
     build:
       context: ./data_loader
@@ -217,6 +242,17 @@ services:
         condition: service_healthy
       data_loader:
         condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request,json; assert json.load(urllib.request.urlopen('http://127.0.0.1:8080/health',timeout=3))['scheduler']['status']=='healthy'
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
   prometheus:
     image: prom/prometheus:v3.2.1
     restart: unless-stopped
